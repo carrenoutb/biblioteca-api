@@ -1,0 +1,454 @@
+basePath: /api
+definitions:
+  models.AuthResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  models.Book:
+    properties:
+      author:
+        type: string
+      available_copies:
+        type: integer
+      category:
+        type: string
+      cover_url:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      isbn:
+        type: string
+      title:
+        type: string
+      total_copies:
+        type: integer
+    type: object
+  models.BookRequest:
+    properties:
+      author:
+        example: Robert C. Martin
+        type: string
+      category:
+        example: Tecnología
+        type: string
+      cover_url:
+        example: https://ejemplo.com/portada.jpg
+        type: string
+      isbn:
+        example: "9780132350884"
+        type: string
+      title:
+        example: Clean Code
+        type: string
+      total_copies:
+        example: 3
+        minimum: 1
+        type: integer
+    required:
+    - author
+    - title
+    - total_copies
+    type: object
+  models.Loan:
+    properties:
+      book_id:
+        type: integer
+      due_at:
+        type: string
+      id:
+        type: integer
+      loaned_at:
+        type: string
+      returned_at:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.LoanDetail:
+    properties:
+      book_author:
+        type: string
+      book_id:
+        type: integer
+      book_title:
+        type: string
+      due_at:
+        type: string
+      id:
+        type: integer
+      loaned_at:
+        type: string
+      returned_at:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.LoanRequest:
+    properties:
+      book_id:
+        example: 1
+        type: integer
+    required:
+    - book_id
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        example: ana@example.com
+        type: string
+      password:
+        example: secreta123
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.RegisterRequest:
+    properties:
+      email:
+        example: ana@example.com
+        type: string
+      name:
+        example: Ana Pérez
+        type: string
+      password:
+        example: secreta123
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API REST para el sistema de biblioteca (proyecto de curso Front-End
+    con React).
+  title: Biblioteca API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Autentica un usuario y devuelve un token JWT
+      parameters:
+      - description: Credenciales
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AuthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Iniciar sesión
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: Devuelve la información del usuario dueño del token enviado
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Perfil del usuario autenticado
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Crea una cuenta de estudiante y devuelve un token JWT
+      parameters:
+      - description: Datos de registro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Registrar un nuevo usuario
+      tags:
+      - auth
+  /books:
+    get:
+      description: Devuelve el catálogo de libros, con filtros opcionales por categoría
+        y búsqueda de título
+      parameters:
+      - description: Filtrar por categoría
+        in: query
+        name: category
+        type: string
+      - description: Buscar por título
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Book'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Listar libros
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Datos del libro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.BookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Book'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Crear un libro (solo admin)
+      tags:
+      - books
+  /books/{id}:
+    delete:
+      parameters:
+      - description: ID del libro
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Eliminar un libro (solo admin)
+      tags:
+      - books
+    get:
+      parameters:
+      - description: ID del libro
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Book'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Obtener un libro por ID
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID del libro
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Datos del libro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.BookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Book'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Actualizar un libro (solo admin)
+      tags:
+      - books
+  /loans:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LoanDetail'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Ver todos los préstamos (solo admin)
+      tags:
+      - loans
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID del libro a pedir prestado
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Loan'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Pedir prestado un libro
+      tags:
+      - loans
+  /loans/{id}/return:
+    put:
+      parameters:
+      - description: ID del préstamo
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Devolver un libro
+      tags:
+      - loans
+  /loans/me:
+    get:
+      description: Lista los préstamos del usuario autenticado, incluyendo activos
+        e histórico
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LoanDetail'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Mis préstamos
+      tags:
+      - loans
+securityDefinitions:
+  BearerAuth:
+    description: 'Escribe: Bearer <tu_token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
