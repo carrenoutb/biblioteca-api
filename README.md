@@ -12,7 +12,7 @@ Permite: registro/login con JWT, catálogo de libros (CRUD para administradores)
 - **sqlx** + **MySQL 8** (persistencia)
 - **JWT** (autenticación) + **bcrypt** (hash de contraseñas)
 - **Swagger** (documentación interactiva de la API)
-- **Docker Compose** (MySQL + API)
+- **Docker Compose** (MySQL + API + Adminer)
 
 ---
 
@@ -65,7 +65,7 @@ Docker Compose version 5.5.1
 | Archivo | ¿Qué es? |
 |---|---|
 | `Dockerfile` | La **receta** para construir la imagen de la API: toma una imagen base de Go, descarga dependencias, compila el binario y deja lista la aplicación (imagen *multi-stage*: un paso para compilar, otro ligero para ejecutar). |
-| `docker-compose.yml` | El **director de orquesta**: define que la app son 2 contenedores — `mysql` (base de datos MySQL 8) y `api` (nuestra API) —, los conecta en una red propia, expone puertos y lanza las migraciones automáticamente. |
+| `docker-compose.yml` | El **director de orquesta**: define la app como 3 contenedores — `mysql` (base de datos MySQL 8), `api` (nuestra API) y `adminer` (visor web de la BD) —, los conecta en una red propia, expone puertos y lanza las migraciones automáticamente. |
 | `.env.example` → `.env` | Las **variables de entorno**: configuración (usuario/clave de la BD, secreto JWT…) que no debe ir "quemada" en el código. Se copia a `.env` (ver paso 3.2). |
 | `migrations/` | Los **scripts SQL** que crean el esquema y cargan datos de ejemplo; MySQL los ejecuta solo, la primera vez que arranca con la base vacía. |
 | `docs/` | La documentación Swagger ya generada (no se edita a mano). |
@@ -125,6 +125,7 @@ docker compose up --build
 3. Arranca **MySQL primero** y espera a que esté sano (el *healthcheck* le "hace ping" cada 5 segundos).
 4. Con MySQL sano, ejecuta **automáticamente** las migraciones (`migrations/001_init.sql`) y el seed en la base vacía.
 5. Arranca la **API** en el puerto `8080`.
+6. Arranca **Adminer** en el puerto `8081` (visor web para ver la base de datos desde el navegador).
 
 > 💡 La primera ejecución tarda unos minutos (descarga imágenes). Para correrlo en segundo plano y seguir usando la terminal: `docker compose up -d`. Para detener sin borrar: `Ctrl + C`.
 
@@ -136,7 +137,7 @@ docker compose up --build
 docker compose ps
 ```
 
-Ambos contenedores deben estar `Up` y MySQL `(healthy)`.
+Los 3 contenedores (`mysql`, `api` y `adminer`) deben estar `Up` y MySQL `(healthy)`.
 
 **b) La documentación interactiva (Swagger):** abre en el navegador
 
@@ -248,6 +249,23 @@ Authorization: Bearer {{login.response.body.token}}
 
 **¿Qué pasó?** La expresión `{{login.response.body.token}}` tomó automáticamente el campo `token` de la **respuesta** de la petición `login` (3.3) y lo puso en la cabecera `Authorization`. REST Client hace el *encadenado* por ti.
 
+### 3.5 — Verificar conectividad (`/ping`)
+
+Agrega la última petición:
+
+```http
+### 5. Ping (verificar conectividad)
+GET http://localhost:8080/ping
+```
+
+**Send Request** → la **respuesta esperada** es:
+
+```json
+{"message":"pong"}
+```
+
+**¿Qué pasó?** `GET /ping` es un endpoint público que no requiere token ni consulta la base de datos: su única función es confirmar que la API está viva y respondiendo (sirve como "¿estás ahí?" del servidor).
+
 ---
 
 ### 🧩 El archivo completo (`pruebas-api.http`)
@@ -290,6 +308,9 @@ Content-Type: application/json
 ### 4. Listar libros (usa el token del login automáticamente)
 GET {{baseUrl}}/api/books
 Authorization: Bearer {{login.response.body.token}}
+
+### 5. Ping (verificar conectividad)
+GET {{baseUrl}}/ping
 ```
 
 **Resumen de la sintaxis** que acabas de usar:
@@ -334,12 +355,12 @@ Authorization: Bearer {{login.response.body.token}}
 | Problema | Solución |
 |---|---|
 | `docker: command not found` | Docker no está instalado o no corre: revisa la sección 1 |
-| `... port is already allocated` (3306 o 8080) | Otra app usa ese puerto: ciérrala o cambia el mapeo en `docker-compose.yml` (ej. `"3307:3306"` / `"8081:8080"`) |
+| `... port is already allocated` (3306, 8080 o 8081) | Otra app usa ese puerto: ciérrala o cambia el mapeo en `docker-compose.yml` (ej. `"3307:3306"` / `"8082:8080"`; ojo: `8081` ya lo usa Adminer) |
 | El build falla descargando imágenes | Sucede sin internet o con red corporativa/proxy |
 | La API responde error de conexión a MySQL | `docker compose logs api` y `docker compose logs mysql`; confirma que MySQL esté `(healthy)` antes que la API y que en tu `.env` el `DB_HOST=mysql` |
 | Quieres los datos de ejemplo originales | ⚠️ `docker compose down -v` y luego `docker compose up --build` |
 | Aviso `the attribute 'version' is obsolete` | Solo es un aviso de Compose; puedes borrar la línea `version: "3.9"` del compose |
-| `404` al abrir `http://localhost:8080/` | Normal: la API no tiene ruta raíz. Usa `/health` o `/swagger/index.html` |
+| `404` al abrir `http://localhost:8080/` | Normal: la API no tiene ruta raíz. Usa `/health`, `/ping` o `/swagger/index.html` |
 
 ---
 
@@ -363,6 +384,8 @@ Authorization: Bearer {{login.response.body.token}}
 
 | Método | Ruta                  | Descripción                          | Auth requerido |
 |--------|-----------------------|---------------------------------------|:--------------:|
+| GET    | `/health`             | Estado de la API (sin BD)             | No             |
+| GET    | `/ping`               | Verificar conectividad (pong)         | No             |
 | POST   | `/api/auth/register`  | Crear cuenta                          | No             |
 | POST   | `/api/auth/login`     | Iniciar sesión (devuelve JWT)         | No             |
 | GET    | `/api/auth/me`        | Perfil del usuario autenticado        | Sí             |
