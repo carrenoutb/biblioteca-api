@@ -22,6 +22,10 @@ func SetupRoutes(
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{"message": "pong"})
+	})
+
 	api := router.Group("/api")
 
 	// Rutas públicas de autenticación
