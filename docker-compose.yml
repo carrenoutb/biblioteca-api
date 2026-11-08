@@ -35,5 +35,15 @@ services:
     ports:
       - "8080:8080"
 
+  adminer:
+    image: adminer:latest
+    container_name: biblioteca_adminer
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+
 volumes:
   mysql_data:
